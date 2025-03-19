@@ -1,0 +1,149 @@
+/* Light Mode Styling */
+QMainWindow, QMainWindow > QWidget, QDialog {
+    background: #F8F9FA;  /* Light Gray-White Background */
+}
+
+/* Table */
+QTableWidget {
+    background: white;
+    color: black;
+    border: 2px solid #695e93; /* Purple Borders */
+    font-size: 16px;
+    gridline-color: #695e93;
+    border-radius: 10px;
+}
+
+/* Headers */
+QHeaderView::section {
+    background-color: #695e93; /* Purple */
+    color: white;
+    font-size: 14px;
+    padding: 10px;
+    border: 1px solid #695e93;
+}
+
+/* Row Selection */
+QTableWidget::item:selected {
+    background: rgba(129, 85, 186, 0.3);  /* Lighter purple highlight */
+    color: black;
+    border: none;
+}
+/*  Scrollbar Styling for Light Mode */
+QScrollBar:vertical {
+    border: 2px solid #695e93; /* Purple border */
+    background: rgba(0, 0, 0, 0.1); /* Light gray transparent background */
+    width: 14px; /* Scrollbar width */
+    margin: 0px 0px 0px 0px;
+    border-radius: 7px;
+}
+
+/* Scrollbar Handle (Movable Part) */
+QScrollBar::handle:vertical {
+    background: #695e93; /* Purple scrollbar */
+    min-height: 20px;
+    border-radius: 7px;
+}
+
+/* Hover Effect */
+QScrollBar::handle:vertical:hover {
+    background: #8A75C9; /* Lighter purple on hover */
+}
+
+/* Pressed (When Clicked) */
+QScrollBar::handle:vertical:pressed {
+    background: #573B8A; /* Darker purple when pressed */
+}
+
+/* Scrollbar Track (The Area Where Handle Moves) */
+QScrollBar::track:vertical {
+    background: rgba(0, 0, 0, 0.05); /* Very light gray background */
+    border-radius: 7px;
+}
+
+/* Hide Scrollbar Buttons (Arrows) */
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    background: none;
+}
+
+/* When No Scrolling is Needed (No Handle) */
+QScrollBar::handle:vertical:disabled {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* Buttons */
+QPushButton {
+    background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+        stop:0 rgba(185, 175, 194, 255),
+        stop:0.4 rgba(105, 94, 147, 255),
+        stop:0.8 rgba(129, 85, 186, 255),
+        stop:1 rgba(40, 28, 45, 255)
+    );
+    color: white;
+    font-size: 20px;
+    padding: 15px 30px;
+    border-radius: 30px;
+    border: 2px solid #695e93;
+    min-width: 220px;
+    max-width: 350px;
+    height: 60px;
+    margin: 20px auto;
+}
+
+/* Button Hover */
+QPushButton:hover {
+    background: #E3E3E3;
+    border-color: #695e93;
+    color: black;
+}
+
+/* Labels */
+QLabel {
+    background: transparent;
+    color: #333333;
+    font-size: 16px;
+}
+/*  Fix: Search Box (QComboBox) Text */
+QComboBox#searchBox {
+    background-color: rgba(255, 255, 255, 0.2); /* Semi-transparent background */
+    color: #333333;
+    border-radius: 8px;
+    border: 2px solid #695e93;
+    padding: 5px;
+    font-size: 16px;
+}
+
+/*  Fix: Ensure dropdown text inside search box is also purple */
+QComboBox#searchBox QAbstractItemView {
+    background: white;
+    color: #333333;
+    border: 2px solid #695e93;
+    selection-background-color: rgba(105, 94, 147, 0.2); /* Light purple highlight */
+    selection-color: #695e93;
+}
+
+/* Toggle Switch (QCheckBox) */
+QCheckBox {
+    font-size: 18px;
+    color: white; /* Text color */
+    spacing: 10px;
+}
+
+QCheckBox::indicator {
+    width: 50px;
+    height: 25px;
+    border-radius: 12px;
+    background-color: white; /* Default background */
+    border: 2px solid #695e93; /* Purple Border */
+
+}
+
+QCheckBox::indicator:checked {
+    background-color: #695e93; /* Purple background when ON */
+    border: 2px solid white;
+}
+
+QCheckBox::indicator:unchecked {
+    background-color: rgba(255, 255, 255, 0.3); /* Light gray when OFF */
+    border: 2px solid #695e93;
+}
+

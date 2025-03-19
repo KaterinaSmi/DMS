@@ -1,0 +1,198 @@
+/*  Apply Background Gradient to Both the Window and Its Central Widget */
+QMainWindow, QMainWindow > QWidget, QDialog{
+    background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+        stop:0 rgba(185, 175, 194, 255),
+        stop:0.4 rgba(105, 94, 147, 255),
+        stop:0.8 rgba(129, 85, 186, 255),
+        stop:1 rgba(40, 28, 45, 255)
+    );
+}
+
+/* Table styles */
+/* Make QTableWidget look modern */
+QTableWidget {
+    background: rgba(0, 0, 0, 0.3);  /* Semi-transparent background */
+    color: white;
+    border: 2px solid #695e93;
+    font-size: 16px;
+    gridline-color: #695e93;
+    border-radius: 10px;
+}
+
+/* Header Styling */
+QHeaderView::section {
+    background-color: rgba(105, 94, 147, 0.8);
+    color: white;
+    font-size: 14px;
+    padding: 10px;
+    border: 1px solid #695e93;
+}
+
+/* Table Cells */
+QTableWidget::item {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Align text center */
+QTableWidget QTableWidgetItem {
+    text-align: center;
+}
+
+/* Row Selection */
+QTableWidget::item:selected {
+    background: rgba(129, 85, 186, 0.5);  /* Highlighted row */
+    color: white;
+    border: none;
+}
+/* ✅ Scrollbar Styling for Dark Mode */
+QScrollBar:vertical {
+    border: 2px solid #695e93; /* Purple border */
+    background: rgba(255, 255, 255, 0.1); /* Semi-transparent background */
+    width: 14px; /* Scrollbar width */
+    margin: 0px 0px 0px 0px;
+    border-radius: 7px;
+}
+
+/* Scrollbar Handle (Movable Part) */
+QScrollBar::handle:vertical {
+    background: #695e93; /* Purple scrollbar */
+    min-height: 20px;
+    border-radius: 7px;
+}
+
+/* Hover Effect */
+QScrollBar::handle:vertical:hover {
+    background: #8A75C9; /* Lighter purple on hover */
+}
+
+/* Pressed (When Clicked) */
+QScrollBar::handle:vertical:pressed {
+    background: #573B8A; /* Darker purple when pressed */
+}
+
+/* Scrollbar Track (The Area Where Handle Moves) */
+QScrollBar::track:vertical {
+    background: rgba(255, 255, 255, 0.2); /* Lighter transparent background */
+    border-radius: 7px;
+}
+
+/* Hide Scrollbar Buttons (Arrows) */
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    background: none;
+}
+
+/* When No Scrolling is Needed (No Handle) */
+QScrollBar::handle:vertical:disabled {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/*  Styled Buttons */
+QPushButton {
+    background: rgba(255, 255, 255, 0.1); /* Semi-transparent */
+    color: white;
+    font-size: 20px;
+    padding: 15px 30px;
+    border-radius: 30px;
+    border: 2px solid #695e93;
+    min-width: 220px;
+    max-width: 350px;
+    height: 60px;
+    margin: 20px auto;
+
+}
+
+/*  Button Hover Effect */
+QPushButton:hover {
+    background: rgba(255, 255, 255, 0.3); /* Slightly more visible */
+    border-color: white;
+    color: #222; /* Slightly darker text */
+}
+
+/*  Remove Background from QLabel */
+QLabel {
+    background: transparent;
+    color: white;  /* Ensure readability */
+    font-size: 16px;
+}
+
+/* Keep search box semi-transparent */
+QComboBox#searchBox {
+    color: #333333;
+    width: 50px;
+    border-radius: 8px;
+    border: 2px solid #695e93;
+    padding: 5px;
+    font-size: 16px;
+}
+
+/* Drop-down button styling */
+QComboBox#searchBox::drop-down {
+    border-left: 2px solid #695e93;
+    width: 25px; /* Ensure the button has width */
+
+}
+
+/*  Fix: Make sure the down arrow is visible */
+QComboBox#searchBox::down-arrow {
+    image: url(exports/arrow.png); /* Ensure this path is correct */
+    width: 32px;
+    height: 22px;
+}
+
+/*  Drop-down menu styling */
+QComboBox#searchBox QAbstractItemView {
+     background: white;
+    color: #333333 /* White text inside the list */
+    border: 2px solid #695e93;
+    selection-background-color: rgba(105, 94, 147, 0.8); /* Highlight selection */
+    selection-color: white;
+    max-height: 150px; /* Prevents full-screen drop-down */
+}
+
+
+/*  Remove Background from Menu Bar */
+QMenuBar {
+    background: transparent;
+    color: white;
+}
+
+/* Dark Theme for Menus */
+QMenu {
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+}
+
+/*  Highlight Menu Item on Hover */
+QMenu::item:selected {
+    background: rgba(190, 175, 194, 0.2);
+}
+
+/* Toggle Switch (QCheckBox) */
+QCheckBox {
+    font-size: 18px;
+    color: white; /* Text color */
+    spacing: 10px;
+}
+
+QCheckBox::indicator {
+    width: 50px;
+    height: 25px;
+    border-radius: 12px;
+    background-color: white; /* Default background */
+    border: 2px solid #695e93; /* Purple Border */
+}
+
+QCheckBox::indicator:checked {
+    background-color: white; /* Purple background when ON */
+    border: 2px solid white;
+}
+
+QCheckBox::indicator:unchecked {
+    background-color: rgba(255, 255, 255, 0.3); /* Light gray when OFF */
+    border: 2px solid #695e93;
+}
+
+
+
+
