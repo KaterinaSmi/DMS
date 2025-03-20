@@ -207,9 +207,9 @@ class CreateProjectWindow(QDialog):
                             book_info["headers"] = headers  # Save headers
                             book_info["rows"] = [row for row in csv_reader]  # Read data
                         else:
-                            print( f"⚠️ Warning: No headers found in {file_path}. Skipping file.")
+                            print( f"Warning: No headers found in {file_path}. Skipping file.")
                 except Exception as e:
-                    print(f"⚠️ Error reading {file_path}: {e}")
+                    print(f" Error reading {file_path}: {e}")
 
             books_data.append(book_info)
 
