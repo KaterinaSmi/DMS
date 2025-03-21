@@ -13,6 +13,7 @@ class Project(Base):
     # A project has many books
     books = relationship("Book", back_populates="project", cascade="all, delete-orphan")
     section_relations = relationship("SectionRelation", back_populates="project", cascade="all, delete-orphan")
+    document_details = relationship("DocumentDetail", back_populates="project", cascade="all, delete-orphan")  # <-- New relationship
 
 class Book(Base):
     """Book model linked to Project."""
@@ -58,7 +59,7 @@ class DocumentDetail(Base):
     document_detail_id = Column(Integer, primary_key=True, autoincrement=True)
     document_id = Column(Integer, ForeignKey('tbldocuments.id', ondelete='CASCADE', onupdate='CASCADE'), nullable=False)
     relation_id = Column(Integer, ForeignKey('tblsection_relation.relation_id', ondelete='CASCADE', onupdate='CASCADE'), nullable=True)
-
+    project_id = Column(Integer,ForeignKey('tblproject.id', ondelete='CASCADE', onupdate='CASCADE'), nullable=False)
     active = Column(Integer, nullable=True)
 
     # Text fields (Optional fields)
@@ -86,6 +87,7 @@ class DocumentDetail(Base):
     # Relationships
     document = relationship("Document", back_populates="document_details")
     section_relation = relationship("SectionRelation", back_populates="document_details")
+    project = relationship("Project", back_populates="document_details")  # <-- Proper relationship
 
 
 class ProjectSection(Base):

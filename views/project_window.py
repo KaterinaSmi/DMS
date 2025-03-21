@@ -1,97 +1,139 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy, QPushButton
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy, \
+    QPushButton, QHBoxLayout, QToolButton, QMenu, QScrollArea, QWidget
 from PyQt6.QtCore import Qt
-from database.db_methods import get_project_by_id, get_books_by_project
+from PyQt6 import QtWidgets, QtCore
+from database.db_methods import get_project_by_id, get_project_details, get_document_details
+
 
 class ProjectWindow(QDialog):
-    """Dialog displaying project details with product name and books in separate rows."""
+    """Dialog displaying project details with product name, sections, and books/documents."""
 
     def __init__(self, project_id, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Project Details")
-        self.resize(800, 600)
+        self.resize(1000, 800)
         self.setModal(True)
 
-        # Main Vertical Layout
-        main_layout = QVBoxLayout()
+        # Create a scrollable main layout
+        scroll_area = QScrollArea(self)
+        scroll_area.setWidgetResizable(True)
+
+        # The widget holding the scrollable content
+        scroll_content = QWidget()
+        self.main_layout = QVBoxLayout(scroll_content)
 
         # Load project details
-        project = get_project_by_id(project_id)
-        books = get_books_by_project(project_id)
+        structured_data = get_project_details(project_id)
+        project_name = structured_data["project"]["project_name"]
+        books_data = structured_data["books"]
 
-        if not project:
-            print(f"ERROR: No project found for ID {project_id}")
-            return
+        # Fetch and attach document details
+        for book_id, book_data in books_data.items():
+            for document in book_data["documents"]:
+                document_id = document["document_id"]
+                document_details = get_document_details(project_id=project_id, book_id=book_id, document_id=document_id)
+                document["details"] = document_details  # Attach details to the document
 
-        #  Determine the number of rows needed (at least 1 row)
-        num_rows = max(1, len(books))
+        # Project Title
+        self.project_label = QLabel(f"<h1>{project_name}</h1>")
+        self.project_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.main_layout.addWidget(self.project_label)
 
-        #  Create Table with Dynamic Rows (One Book per Row)
-        self.project_table = QTableWidget(num_rows, 2)  # Dynamic rows, 2 columns
-        self.project_table.setHorizontalHeaderLabels(["Product Name", "Books"])  # Set header labels
+        # Action Menu
+        self.create_action_menu()
 
-        #  Enable Drag & Drop
-        self.project_table.setDragEnabled(True)
-        self.project_table.setAcceptDrops(True)
-        self.project_table.viewport().setAcceptDrops(True)
-        self.project_table.setDragDropMode(QTableWidget.DragDropMode.InternalMove)  #  Allows reordering rows
-        self.project_table.setSelectionBehavior(
-            QTableWidget.SelectionBehavior.SelectRows)  #  Allows selecting full rows
+        # Display sections and documents
+        self.display_sections(books_data)
 
-        #  Ensure the Project Name only appears in the first row
-        name_item = QTableWidgetItem(project.name)
-        name_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft)
-        name_item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)  # Read-only
+        # Apply the scrollable content to the scroll area
+        scroll_area.setWidget(scroll_content)
 
-        self.project_table.setItem(0, 0, name_item)  # Place project name in the first row, first column
+        # Add scroll area to the main layout
+        layout = QVBoxLayout(self)
+        layout.addWidget(scroll_area)
 
-        # Add books to individual rows under the "Books" column
-        for row, book in enumerate(books):
-            book_item = QTableWidgetItem(book.name)
-            book_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft)
-            book_item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)  # Read-only
+    def create_action_menu(self):
+        self.action_menu = QToolButton(self)
+        self.action_menu.setText("☰ Actions")
+        self.action_menu.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.action_menu.setStyleSheet("QToolButton::menu-indicator { image: none; }")
+        menu = QMenu(self)
 
-            self.project_table.setItem(row, 1, book_item)  # Add book to the second column
+        menu.addAction("Export to HTML").triggered.connect(self.export_html)
+        menu.addAction("Open in Excel").triggered.connect(self.open_in_excel)
+        menu.addAction("Open in MyWorkshop").triggered.connect(self.open_in_myworkshop)
+        menu.addAction("Exit").triggered.connect(self.reject)
 
-        #  Enable Scrollbars to Prevent Cutting Off Rows
-        self.project_table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.project_table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.action_menu.setMenu(menu)
+        self.main_layout.addWidget(self.action_menu)
 
-        #  Allow Column Resizing, but Keep Fixed Row Heights
-        self.project_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # Product Name
-        self.project_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Books Column
+    def display_sections(self, books_data):
+        """Displays sections, subsections, and related documents."""
+        sections = self.collect_sections(books_data)
 
-        #  Fix Row Heights for Readability
-        for row in range(num_rows):
-            self.project_table.setRowHeight(row, 40)  # Adjust row height (increase if needed)
+        for section_name, subsections in sections.items():
+            # Display section name
+            section_label = QLabel(f"<h2>{section_name}</h2>")
+            section_label.setStyleSheet("color: #695e93; font-weight: bold;")
+            section_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.main_layout.addWidget(section_label)
 
-        # Button to Save Order
-        self.save_order_btn = QPushButton("Save Order")
-        self.save_order_btn.clicked.connect(self.save_book_order)
+            for subsection_name, documents in subsections.items():
+                # Display subsection name
+                subsection_label = QLabel(f"    ➜ {subsection_name}")
+                subsection_label.setStyleSheet("padding-left: 20px; font-weight: bold; color:#695e93;")
+                self.main_layout.addWidget(subsection_label)
 
-        # Close Button (Bottom)
-        self.close_btn = QPushButton("Close")
-        self.close_btn.clicked.connect(self.reject)
-        self.close_btn.setFixedHeight(80)
-        self.close_btn.setMinimumWidth(200)
-        self.close_btn.setStyleSheet("font-size: 18px; padding: 10px; border-radius: 10px;")
+                # Create Table for Documents
+                table = QTableWidget()
+                table.setColumnCount(5)
+                table.setHorizontalHeaderLabels(["Document", "Title", "State", "Owner", "Release Date"])
+                table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+                table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                table.setStyleSheet("background-color: white;")  # White background
 
-        # Add the table and close button to the layout
-        main_layout.addWidget(self.project_table)  # Table with product name & books
-        main_layout.addWidget(self.save_order_btn, alignment=Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(self.close_btn, alignment=Qt.AlignmentFlag.AlignCenter)  # Close button at the bottom
+                # Populate table with documents
+                table.setRowCount(len(documents))
+                for row_index, document in enumerate(documents):
+                    table.setItem(row_index, 0, QTableWidgetItem(document.get("doc", "")))
+                    table.setItem(row_index, 1, QTableWidgetItem(document.get("title", "")))
+                    table.setItem(row_index, 2, QTableWidgetItem(document.get("state", "")))
+                    table.setItem(row_index, 3, QTableWidgetItem(document.get("owner", "")))
+                    table.setItem(row_index, 4, QTableWidgetItem(str(document.get("release_date", ""))))
 
-        self.setLayout(main_layout)
+                # Adjust table height to fit all rows
+                table.resizeRowsToContents()
+                total_height = sum(
+                    table.rowHeight(row) for row in range(table.rowCount())) + table.horizontalHeader().height()
+                table.setFixedHeight(total_height)  # Prevent table scroll
 
-    def save_book_order(self):
-        """Saves the new order of books in memory (not in database)."""
-        self.book_order = []
-        for row in range(1, self.project_table.rowCount()):  # Skip row 0 (Product Name)
-            book_item = self.project_table.item(row, 1)
-            if book_item:
-                self.book_order.append(book_item.text())
+                # Add the table to the layout
+                self.main_layout.addWidget(table)
 
-        print(f" New Book Order Saved in Memory: {self.book_order}")  #Stored for final HTML use
+    @staticmethod
+    def collect_sections(books_data):
+        """Collects documents and groups them under sections and subsections."""
+        sections = {}
+        for book_id, book_data in books_data.items():
+            for document in book_data["documents"]:
+                section = document["section"]
+                subsection = document["subsection"]
 
-    def get_book_order(self):
-        """ Returns the current order of books (for final HTML)."""
-        return self.book_order
+                if section not in sections:
+                    sections[section] = {}
+
+                if subsection not in sections[section]:
+                    sections[section][subsection] = []
+
+                sections[section][subsection].append(document)
+
+        return sections
+
+    def export_html(self):
+        QtWidgets.QMessageBox.information(self, "Export HTML", "Export to HTML feature coming soon!")
+
+    def open_in_excel(self):
+        QtWidgets.QMessageBox.information(self, "Excel", "Opening in Excel...")
+
+    def open_in_myworkshop(self):
+        QtWidgets.QMessageBox.information(self, "MyWorkshop", "Opening in MyWorkshop...")

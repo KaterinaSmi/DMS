@@ -10,7 +10,6 @@ QTableWidget {
     border: 2px solid #695e93; /* Purple Borders */
     font-size: 16px;
     gridline-color: #695e93;
-    border-radius: 10px;
 }
 
 /* Headers */

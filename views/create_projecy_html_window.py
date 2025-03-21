@@ -1,7 +1,8 @@
 from PyQt6 import QtWidgets, QtGui, QtCore
 import csv
 import os
-from PyQt6.QtWidgets import QHeaderView, QToolButton, QMenu, QFileDialog, QMessageBox
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QHeaderView, QToolButton, QMenu, QFileDialog, QMessageBox, QInputDialog
 from views.book_reorder_dialog import BookReorderDialog
 
 
@@ -68,13 +69,8 @@ class GroupView(QtWidgets.QTreeView):
     def startDrag(self, supported_actions):
         """Initiates the drag action."""
         try:
-            print(" Starting drag operation...")
+
             indexes = self.selectedIndexes()
-
-            if not indexes:
-                print(" No index selected for dragging.")
-                return
-
             self.dragged_index = indexes[0]
             if not self.dragged_index.isValid():
                 print(" Dragged index is invalid.")
@@ -101,10 +97,7 @@ class GroupView(QtWidgets.QTreeView):
 
                 # Execute the drag operation
                 result = drag.exec(QtCore.Qt.DropAction.MoveAction)
-                print(f" Drag operation result: {result}")
-
                 return  # Safely return after top-level drag
-
             # Handle normal (non-top-level) dragging
             drag = QtGui.QDrag(self)
             mime_data = self.model().mimeData(indexes)
@@ -217,7 +210,6 @@ class GroupModel(QtGui.QStandardItemModel):
             item.setEditable(False)
             book_item.setChild(row_idx, col_idx, item)
 
-
 class CreateProjectHtml(QtWidgets.QDialog):
     """Main Window for Managing Book Data"""
 
@@ -235,9 +227,31 @@ class CreateProjectHtml(QtWidgets.QDialog):
         # Action Menu
         self.create_action_menu(layout)
 
-        # Project Name Label
+        # Project Name Label (Editable)
         self.project_label = QtWidgets.QLabel(f"<h2>{self.project_name}</h2>")
+        self.project_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.project_label.setStyleSheet("""
+            font-size: 24px;
+            padding: 12px;
+            background: transparent;
+        """)
+        self.project_label.mousePressEvent = self.edit_project_name
         layout.addWidget(self.project_label)
+
+        # Initial Section Label at the top
+        self.section_label = QtWidgets.QLabel("Section 1")
+        self.section_label.setStyleSheet("""
+            font-size: 18px;
+            font-weight: bold;
+            padding: 6px;
+            background-color: #f0f0f0;
+            border: 1px solid gray;
+            color: black;
+            text-align: center;
+        """)
+        self.section_label.mousePressEvent = self.edit_section_name
+        self.section_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.section_label)
 
         # Tree View Setup
         self.model = GroupModel(self)
@@ -248,6 +262,20 @@ class CreateProjectHtml(QtWidgets.QDialog):
 
         self.setLayout(layout)
 
+    def edit_project_name(self, event):
+        """Allows the user to edit the project name."""
+        new_name, ok = QtWidgets.QInputDialog.getText(self, "Edit Project Name", "Enter Project Name:",
+                                                      text=self.project_label.text())
+        if ok and new_name:
+            self.project_label.setText(new_name)
+
+    def edit_section_name(self, event):
+        """Allows the user to edit the project name."""
+        new_name, ok = QtWidgets.QInputDialog.getText(self, "Edit Section Name", "Enter Section Name:",
+                                                      text=self.section_label.text())
+        if ok and new_name:
+            self.section_label.setText(new_name)
+
     def create_action_menu(self, layout):
         self.action_menu = QToolButton(self)
         self.action_menu.setText("☰ Actions")
@@ -255,12 +283,34 @@ class CreateProjectHtml(QtWidgets.QDialog):
         self.action_menu.setStyleSheet("QToolButton::menu-indicator { image: none; }")
         menu = QMenu(self)
 
+        add_section_action = menu.addAction("Add Section")
+        add_section_action.triggered.connect(self.add_section)
         add_book_action = menu.addAction("Add Book")
         add_book_action.triggered.connect(self.add_book)
         menu.addAction("Exit").triggered.connect(self.reject)
 
         self.action_menu.setMenu(menu)
         layout.addWidget(self.action_menu)
+
+    def add_section(self):
+        """Add a new section below the table."""
+        section_name, ok = QtWidgets.QInputDialog.getText(self, "Add Section", "Enter Section Name:")
+        if ok and section_name.strip():
+            section_label = QtWidgets.QLabel(section_name)
+            section_label.setStyleSheet("""
+                font-size: 18px;
+                font-weight: bold;
+                padding: 6px;
+                background-color: #f0f0f0;
+                border: 1px solid gray;
+                color:black;
+                text-align: center;
+            """)
+            section_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)  # Ensures text is centered
+            section_label.mousePressEvent = self.edit_section_name
+
+            # Insert the new section at the bottom, just before the table view.
+            self.layout().addWidget(section_label)
 
     def add_book(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Book", "", "CSV Files (*.csv)")

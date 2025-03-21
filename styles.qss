@@ -12,17 +12,16 @@ QMainWindow, QMainWindow > QWidget, QDialog{
 /* Make QTableWidget look modern */
 QTableWidget {
     background: rgba(0, 0, 0, 0.3);  /* Semi-transparent background */
-    color: white;
+    color: #333333;
     border: 2px solid #695e93;
     font-size: 16px;
     gridline-color: #695e93;
-    border-radius: 10px;
 }
 
 /* Header Styling */
 QHeaderView::section {
     background-color: rgba(105, 94, 147, 0.8);
-    color: white;
+    color: #333333;
     font-size: 14px;
     padding: 10px;
     border: 1px solid #695e93;
@@ -30,6 +29,7 @@ QHeaderView::section {
 
 /* Table Cells */
 QTableWidget::item {
+    background: white;
     padding: 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -42,7 +42,6 @@ QTableWidget QTableWidgetItem {
 /* Row Selection */
 QTableWidget::item:selected {
     background: rgba(129, 85, 186, 0.5);  /* Highlighted row */
-    color: white;
     border: none;
 }
 /* ✅ Scrollbar Styling for Dark Mode */
