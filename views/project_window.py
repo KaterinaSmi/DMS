@@ -36,6 +36,7 @@ class ProjectWindow(QDialog):
 
         # Project Title
         self.project_label = QLabel(f"<h1>{project_name}</h1>")
+        self.project_label.setStyleSheet("color: #4D4D4D;")
         self.project_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.main_layout.addWidget(self.project_label)
 
@@ -56,7 +57,28 @@ class ProjectWindow(QDialog):
         self.action_menu = QToolButton(self)
         self.action_menu.setText("☰ Actions")
         self.action_menu.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.action_menu.setStyleSheet("QToolButton::menu-indicator { image: none; }")
+        # Apply Styling
+        self.action_menu.setStyleSheet("""
+               QToolButton {
+                   border: 1px solid #4D4D4D;  /* Slightly darker border */
+                   border-radius: 10px;  /* Rounded corners */
+                   padding: 5px 10px;
+                   font-size: 14px;
+                   tex-align:left;
+               }
+
+               QToolButton:hover {
+                   background-color: #808080;  /* Lighter on hover */
+               }
+
+               QToolButton:pressed {
+                   background-color: #4D4D4D;  /* Darker when pressed */
+               }
+
+               QToolButton::menu-indicator { 
+                   image: none;  /* Removes the default arrow */
+               }
+           """)
         menu = QMenu(self)
 
         menu.addAction("Export to HTML").triggered.connect(self.export_html)
@@ -74,14 +96,14 @@ class ProjectWindow(QDialog):
         for section_name, subsections in sections.items():
             # Display section name
             section_label = QLabel(f"<h2>{section_name}</h2>")
-            section_label.setStyleSheet("color: #695e93; font-weight: bold;")
+            section_label.setStyleSheet("color:#4D4D4D")
             section_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.main_layout.addWidget(section_label)
 
             for subsection_name, documents in subsections.items():
                 # Display subsection name
                 subsection_label = QLabel(f"    ➜ {subsection_name}")
-                subsection_label.setStyleSheet("padding-left: 20px; font-weight: bold; color:#695e93;")
+                subsection_label.setStyleSheet("padding-left: 20px; color: #4D4D4D ;")
                 self.main_layout.addWidget(subsection_label)
 
                 # Create Table for Documents
@@ -91,6 +113,9 @@ class ProjectWindow(QDialog):
                 table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
                 table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
                 table.setStyleSheet("background-color: white;")  # White background
+
+                # Hide row numbers (vertical header)
+                table.verticalHeader().setVisible(False)
 
                 # Populate table with documents
                 table.setRowCount(len(documents))
