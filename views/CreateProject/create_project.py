@@ -5,7 +5,7 @@ from PyQt6.QtGui import QFontMetrics, QCursor, QAction
 import csv
 from PyQt6.QtWidgets import QListWidgetItem
 
-from views.create_projecy_html_window import CreateProjectHtml
+from views.CreateProject.create_projecy_html_window import CreateProjectHtml
 
 
 class CreateProjectWindow(QDialog):

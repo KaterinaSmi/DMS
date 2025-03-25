@@ -34,6 +34,13 @@ def get_books_by_project(project_id):
     session.close()
     return book_list
 
+def get_documents_by_book(book_id):
+    """Fetches documents by books"""
+    session = SessionLocal()
+    document_list = session.query(Document).filter(Document.book_id == book_id).all()
+    session.close()
+    return document_list
+
 def get_sections_by_project(project_id):
     """Fetches section names by project ID."""
     session = SessionLocal()
@@ -96,16 +103,17 @@ def get_document_detail_columns():
     return [column.name for column in inspector.columns]
 
 
-from sqlalchemy.orm import Session
-from models.models import Project, Document, DocumentDetail, ProjectSection, ProjectSubSection, SectionRelation
-from .db_config import SessionLocal
-
-
-def get_project_details(project_id: int):
-    """Fetch all necessary details for a project."""
+def get_project_details(project_id: int, selected_documents: dict):
+    """Fetch details for a project only for selected documents."""
     session = SessionLocal()
 
     try:
+        # Prepare a list of document IDs to filter
+        selected_doc_ids = []
+        for book_data in selected_documents.values():
+            for document in book_data["documents"]:
+                selected_doc_ids.append(document.id)  # Use .id because it's a Document object
+
         # Fetching Project, Books, Documents, Sections, and Subsections
         query = (
             session.query(
@@ -133,6 +141,7 @@ def get_project_details(project_id: int):
             .join(ProjectSection, ProjectSection.section_id == SectionRelation.section_id)
             .join(ProjectSubSection, ProjectSubSection.subsection_id == SectionRelation.subsection_id)
             .filter(Project.id == project_id)
+            .filter(Document.id.in_(selected_doc_ids))  # Filter only selected documents
             .order_by(SectionRelation.relation_order)
         )
 
@@ -176,33 +185,17 @@ def get_project_details(project_id: int):
             }
             books_data[book_id]["documents"].append(document_data)
 
-        # Fetching Document Details Separately
-        document_detail_columns = get_document_detail_columns()
-        document_detail_columns_objs = [getattr(DocumentDetail, col) for col in document_detail_columns]
-
-        document_details_query = (
-            session.query(*document_detail_columns_objs)
-            .filter(DocumentDetail.project_id == project_id)
-        )
-
-        document_details_results = document_details_query.all()
-
-        document_details = []
-        for row in document_details_results:
-            row_dict = dict(row._mapping)
-            document_details.append(row_dict)
-
         # Combine all data in a structured format
         structured_data = {
             "project": project_data,
             "books": books_data,
-            "document_details": document_details
         }
 
         return structured_data
 
     finally:
         session.close()
+
 
 
 def get_document_details(project_id: int, book_id: int, document_id: int):

@@ -1,8 +1,7 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QComboBox, QPushButton
 from PyQt6.QtCore import Qt
 from database.db_methods import get_project_by_name, get_all_project_names
-from views.project_window import ProjectWindow
-
+from views.OpenProject.choose_books import ChooseBooks
 class OpenProjectWindow(QDialog):
     """Dialog for opening an existing project."""
 
@@ -88,7 +87,7 @@ class OpenProjectWindow(QDialog):
         print(f"🔍 Opening project with ID: {self.selected_project_id}")
         if self.selected_project_id:
             try:
-                self.project_dialog = ProjectWindow(self.selected_project_id, self)  #  Parent is self
+                self.project_dialog = ChooseBooks(self.selected_project_id, self)  #  Parent is self
                 self.project_dialog.exec()  #  Use exec() for modal behavior
             except Exception as e:
                 print(f"ERROR: Failed to open project window! {e}")

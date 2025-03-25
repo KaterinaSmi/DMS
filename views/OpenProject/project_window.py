@@ -8,7 +8,7 @@ from database.db_methods import get_project_by_id, get_project_details, get_docu
 class ProjectWindow(QDialog):
     """Dialog displaying project details with product name, sections, and books/documents."""
 
-    def __init__(self, project_id, parent=None):
+    def __init__(self, project_id, selected_documents, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Project Details")
         self.resize(1000, 800)
@@ -23,7 +23,8 @@ class ProjectWindow(QDialog):
         self.main_layout = QVBoxLayout(scroll_content)
 
         # Load project details
-        structured_data = get_project_details(project_id)
+        self.selected_documents = selected_documents
+        structured_data = get_project_details(project_id, self.selected_documents)
         project_name = structured_data["project"]["project_name"]
         books_data = structured_data["books"]
 

@@ -1,9 +1,8 @@
 from PyQt6 import QtWidgets, QtGui, QtCore
 import csv
 import os
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QHeaderView, QToolButton, QMenu, QFileDialog, QMessageBox, QInputDialog
-from views.book_reorder_dialog import BookReorderDialog
+from PyQt6.QtWidgets import QHeaderView, QToolButton, QMenu, QFileDialog, QMessageBox
+from views.CreateProject.book_reorder_dialog import BookReorderDialog
 
 
 class GroupView(QtWidgets.QTreeView):
@@ -26,8 +25,6 @@ class GroupView(QtWidgets.QTreeView):
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragDropMode.InternalMove)
         self.dragged_index = None
         print(" GroupView initialized successfully.")
-
-    from views.book_reorder_dialog import BookReorderDialog
 
     def on_clicked(self, index):
         """Expands or collapses book data rows when clicking on the book name."""

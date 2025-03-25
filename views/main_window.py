@@ -1,8 +1,8 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QCheckBox)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QCursor
-from views.open_project import OpenProjectWindow
-from views.create_project import CreateProjectWindow
+from views.OpenProject.open_project import OpenProjectWindow
+from views.CreateProject.create_project import CreateProjectWindow
 
 class MainWindow(QMainWindow):
     """Main menu with 'Open Project' and 'Create Project' buttons and a theme toggle switch."""
