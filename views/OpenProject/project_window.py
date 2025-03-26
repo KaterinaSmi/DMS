@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy, \
-    QPushButton, QHBoxLayout, QToolButton, QMenu, QScrollArea, QWidget
+    QPushButton, QHBoxLayout, QToolButton, QMenu, QScrollArea, QWidget, QInputDialog
 from PyQt6.QtCore import Qt
 from PyQt6 import QtWidgets, QtCore
 from database.db_methods import get_project_by_id, get_project_details, get_document_details
@@ -65,7 +65,7 @@ class ProjectWindow(QDialog):
                    border-radius: 10px;  /* Rounded corners */
                    padding: 5px 10px;
                    font-size: 14px;
-                   tex-align:left;
+                   text-align:left;
                }
 
                QToolButton:hover {
@@ -94,47 +94,102 @@ class ProjectWindow(QDialog):
         """Displays sections, subsections, and related documents."""
         sections = self.collect_sections(books_data)
 
+        # Columns to exclude from displaying
+        columns_to_exclude = {"project_id", "relation_id", "document_id", "document_detail_id", "active"}
+
         for section_name, subsections in sections.items():
-            # Display section name
+            # Create section label
             section_label = QLabel(f"<h2>{section_name}</h2>")
             section_label.setStyleSheet("color:#4D4D4D")
             section_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            section_label.mousePressEvent = lambda event, label=section_label: self.edit_label(event, label)
             self.main_layout.addWidget(section_label)
 
             for subsection_name, documents in subsections.items():
-                # Display subsection name
+                # Create subsection label
                 subsection_label = QLabel(f"    ➜ {subsection_name}")
                 subsection_label.setStyleSheet("padding-left: 20px; color: #4D4D4D ;")
+                subsection_label.mousePressEvent = lambda event, label=subsection_label: self.edit_label(event, label)
                 self.main_layout.addWidget(subsection_label)
 
                 # Create Table for Documents
                 table = QTableWidget()
-                table.setColumnCount(5)
-                table.setHorizontalHeaderLabels(["Document", "Title", "State", "Owner", "Release Date"])
-                table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-                table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-                table.setStyleSheet("background-color: white;")  # White background
-
-                # Hide row numbers (vertical header)
+                table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+                table.setStyleSheet("background-color: white;")
+                table.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
                 table.verticalHeader().setVisible(False)
 
-                # Populate table with documents
+                # Initialize table row count
                 table.setRowCount(len(documents))
-                for row_index, document in enumerate(documents):
-                    table.setItem(row_index, 0, QTableWidgetItem(document.get("doc", "")))
-                    table.setItem(row_index, 1, QTableWidgetItem(document.get("title", "")))
-                    table.setItem(row_index, 2, QTableWidgetItem(document.get("state", "")))
-                    table.setItem(row_index, 3, QTableWidgetItem(document.get("owner", "")))
-                    table.setItem(row_index, 4, QTableWidgetItem(str(document.get("release_date", ""))))
 
-                # Adjust table height to fit all rows
+                # To store all milestone columns for this subsection
+                all_milestone_columns = set()
+
+                for document in documents:
+                    document_details = document.get("details", [])
+                    if document_details:
+                        for detail in document_details:
+                            all_milestone_columns.update(
+                                [col for col in detail.keys() if col not in columns_to_exclude]
+                            )
+
+                all_milestone_columns = list(all_milestone_columns)
+                milestone_count = len(all_milestone_columns)
+
+                # Define column count for each document's row (+1 for an expanding filler column)
+                column_count = 6 + milestone_count
+                table.setColumnCount(column_count)
+
+                # Add headers including milestone columns
+                table.setHorizontalHeaderLabels(
+                    ["Document", "Title", "State", "Owner", "Release Date"] + all_milestone_columns + [""]
+                )
+
+                # Enable resizing of columns
+                header = table.horizontalHeader()
+                header.setSectionsMovable(True)
+                header.setStretchLastSection(True)
+
+                # Set the width of 'Title' column to a fixed size of 350px
+                table.setColumnWidth(1, 350)
+
+                # Make all other columns interactive for resizing
+                for col_index in range(column_count - 1):  # Excluding the last filler column
+                    if col_index != 1:  # Only 'Title' column has fixed width
+                        header.setSectionResizeMode(col_index, QHeaderView.ResizeMode.Interactive)
+
+                # Fill rows
+                for row_index, document in enumerate(documents):
+                    table.setItem(row_index, 0, QTableWidgetItem(document.get("doc", "") or ""))
+                    table.setItem(row_index, 1, QTableWidgetItem(document.get("title", "") or ""))
+                    table.setItem(row_index, 2, QTableWidgetItem(document.get("state", "") or ""))
+                    table.setItem(row_index, 3, QTableWidgetItem(document.get("owner", "") or ""))
+                    table.setItem(row_index, 4, QTableWidgetItem(str(document.get("release_date", "")) or ""))
+
+                    # Populate milestone columns
+                    document_details = document.get("details", [])
+                    if document_details:
+                        for detail in document_details:
+                            for col_index, milestone in enumerate(all_milestone_columns):
+                                value = detail.get(milestone, "")
+                                table.setItem(row_index, 5 + col_index, QTableWidgetItem(str(value) if value else ""))
+
+                # Adjust table height to fit rows
                 table.resizeRowsToContents()
                 total_height = sum(
-                    table.rowHeight(row) for row in range(table.rowCount())) + table.horizontalHeader().height()
-                table.setFixedHeight(total_height)  # Prevent table scroll
+                    table.rowHeight(row) for row in range(table.rowCount())
+                ) + table.horizontalHeader().height()
+                table.setFixedHeight(total_height)
 
                 # Add the table to the layout
                 self.main_layout.addWidget(table)
+
+    def edit_label(self, event, label):
+        """Edit a label when clicked."""
+        current_text = label.text().strip().replace("➜ ", "")
+        new_name, ok = QInputDialog.getText(self, "Edit Name", "Enter new name:", text=current_text)
+        if ok and new_name:
+            label.setText(f"    ➜ {new_name}" if "➜" in label.text() else f"<h2>{new_name}</h2>")
 
     @staticmethod
     def collect_sections(books_data):
