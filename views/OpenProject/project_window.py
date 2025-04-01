@@ -1,3 +1,4 @@
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy, \
     QPushButton, QHBoxLayout, QToolButton, QMenu, QScrollArea, QWidget, QInputDialog
 from PyQt6.QtCore import Qt
@@ -50,9 +51,11 @@ class ProjectWindow(QDialog):
         # Apply the scrollable content to the scroll area
         scroll_area.setWidget(scroll_content)
 
+
         # Add scroll area to the main layout
         layout = QVBoxLayout(self)
         layout.addWidget(scroll_area)
+        self.main_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
     def create_action_menu(self):
         self.action_menu = QToolButton(self)
@@ -92,6 +95,8 @@ class ProjectWindow(QDialog):
 
     def display_sections(self, books_data):
         """Displays sections, subsections, and related documents."""
+        section_layout = QVBoxLayout()
+        section_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         sections = self.collect_sections(books_data)
 
         # Columns to exclude from displaying
@@ -108,9 +113,10 @@ class ProjectWindow(QDialog):
             for subsection_name, documents in subsections.items():
                 # Create subsection label
                 subsection_label = QLabel(f"    ➜ {subsection_name}")
-                subsection_label.setStyleSheet("padding-left: 20px; color: #4D4D4D ;")
+                subsection_label.setFixedHeight(50)
+                subsection_label.setStyleSheet("padding-left: 20px; color: #4D4D4D;")
                 subsection_label.mousePressEvent = lambda event, label=subsection_label: self.edit_label(event, label)
-                self.main_layout.addWidget(subsection_label)
+                section_layout.addWidget(subsection_label)
 
                 # Create Table for Documents
                 table = QTableWidget()
@@ -119,6 +125,12 @@ class ProjectWindow(QDialog):
                 table.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
                 table.verticalHeader().setVisible(False)
 
+                add_button = QToolButton()
+                add_button.setIcon(QIcon.fromTheme("list-add"))
+                add_button.clicked.connect(self.add_milestone)
+                add_button.setStyleSheet('margin-left: 10px; border-radius: 5px;')
+                add_button.setToolTip("Add milestone")
+                section_layout.addWidget(add_button)
                 # Initialize table row count
                 table.setRowCount(len(documents))
 
@@ -172,24 +184,50 @@ class ProjectWindow(QDialog):
                         for detail in document_details:
                             for col_index, milestone in enumerate(all_milestone_columns):
                                 value = detail.get(milestone, "")
-                                table.setItem(row_index, 5 + col_index, QTableWidgetItem(str(value) if value else ""))
+                                item = QTableWidgetItem(str(value) if value else "")
+                                item.setFlags(Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
+                                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                                table.setItem(row_index, 5 + col_index, item)
 
                 # Adjust table height to fit rows
                 table.resizeRowsToContents()
-                total_height = sum(
-                    table.rowHeight(row) for row in range(table.rowCount())
-                ) + table.horizontalHeader().height()
+                h_hor_scroll = 0
+                if table.columnCount() > 6:
+                    h_hor_scroll = table.horizontalScrollBar().height()
+                total_height = sum(table.rowHeight(row) for row in range(table.rowCount())) + table.horizontalHeader().height() + h_hor_scroll + 4
                 table.setFixedHeight(total_height)
 
                 # Add the table to the layout
-                self.main_layout.addWidget(table)
+                section_layout.addWidget(table)
+            self.main_layout.addLayout(section_layout)
+
+    @staticmethod
+    def add_milestone(self):
+        """Handles adding a new milestone to the table."""
+        print("Add milestone clicked")
 
     def edit_label(self, event, label):
         """Edit a label when clicked."""
-        current_text = label.text().strip().replace("➜ ", "")
+        current_text = label.text().strip()
+
+        # Remove the arrow only if it exists in the text (for subsections)
+        if "➜ " in current_text:
+            current_text = current_text.replace("➜ ", "")
+        elif "<h2>" in current_text and "</h2>" in current_text:
+            # Extracting text between <h2>...</h2> tags
+            current_text = current_text.replace("<h2>", "").replace("</h2>", "")
+
+        # Display input dialog and sanitize the input
         new_name, ok = QInputDialog.getText(self, "Edit Name", "Enter new name:", text=current_text)
         if ok and new_name:
-            label.setText(f"    ➜ {new_name}" if "➜" in label.text() else f"<h2>{new_name}</h2>")
+            # Remove any leading/trailing whitespaces or newlines
+            sanitized_name = new_name.strip().replace('\n', '')
+
+            # Update the label text properly
+            if "➜" in label.text():
+                label.setText(f"    ➜ {sanitized_name}")
+            else:
+                label.setText(f"<h2>{sanitized_name}</h2>")
 
     @staticmethod
     def collect_sections(books_data):
