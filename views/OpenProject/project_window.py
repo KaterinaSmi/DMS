@@ -1,9 +1,10 @@
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy, \
-    QPushButton, QHBoxLayout, QToolButton, QMenu, QScrollArea, QWidget, QInputDialog
+    QPushButton, QHBoxLayout, QToolButton, QMenu, QScrollArea, QWidget, QInputDialog, QSpacerItem
 from PyQt6.QtCore import Qt
 from PyQt6 import QtWidgets, QtCore
 from database.db_methods import get_project_by_id, get_project_details, get_document_details
+from functools import partial
 
 
 class ProjectWindow(QDialog):
@@ -95,14 +96,15 @@ class ProjectWindow(QDialog):
 
     def display_sections(self, books_data):
         """Displays sections, subsections, and related documents."""
-        section_layout = QVBoxLayout()
-        section_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
         sections = self.collect_sections(books_data)
 
         # Columns to exclude from displaying
         columns_to_exclude = {"project_id", "relation_id", "document_id", "document_detail_id", "active"}
 
         for section_name, subsections in sections.items():
+            section_layout = QVBoxLayout()
+            section_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
             # Create section label
             section_label = QLabel(f"<h2>{section_name}</h2>")
             section_label.setStyleSheet("color:#4D4D4D")
@@ -127,7 +129,7 @@ class ProjectWindow(QDialog):
 
                 add_button = QToolButton()
                 add_button.setIcon(QIcon.fromTheme("list-add"))
-                add_button.clicked.connect(self.add_milestone)
+                add_button.clicked.connect(partial(self.add_milestone, table))
                 add_button.setStyleSheet('margin-left: 10px; border-radius: 5px;')
                 add_button.setToolTip("Add milestone")
                 section_layout.addWidget(add_button)
@@ -196,15 +198,44 @@ class ProjectWindow(QDialog):
                     h_hor_scroll = table.horizontalScrollBar().height()
                 total_height = sum(table.rowHeight(row) for row in range(table.rowCount())) + table.horizontalHeader().height() + h_hor_scroll + 4
                 table.setFixedHeight(total_height)
+                self.current_table = table
 
                 # Add the table to the layout
                 section_layout.addWidget(table)
             self.main_layout.addLayout(section_layout)
+        #Prevent dropping the table to the bottom if not enougth content
+        self.main_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
-    @staticmethod
-    def add_milestone(self):
-        """Handles adding a new milestone to the table."""
-        print("Add milestone clicked")
+    def add_milestone(self, table):
+        column_name, ok = QInputDialog.getText(self, "Add Milestone", "Enter milestone name:")
+        if not ok or not column_name.strip():
+            return
+
+        column_name = column_name.strip()
+
+        # 1. Удалим пустую колонку в конце (если она есть)
+        last_col = table.columnCount() - 1
+        if table.horizontalHeaderItem(last_col) and table.horizontalHeaderItem(last_col).text() == "":
+            table.removeColumn(last_col)
+
+        # 2. Добавим новую колонку
+        new_col_index = table.columnCount()
+        table.insertColumn(new_col_index)
+        table.setHorizontalHeaderItem(new_col_index, QTableWidgetItem(column_name))
+
+        for row in range(table.rowCount()):
+            item = QTableWidgetItem("")
+            item.setFlags(Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
+            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            table.setItem(row, new_col_index, item)
+
+        # 3. Добавим снова служебную пустую колонку
+        table.insertColumn(new_col_index + 1)
+        table.setHorizontalHeaderItem(new_col_index + 1, QTableWidgetItem(""))
+
+        # 4. Обновим размеры
+        table.resizeColumnsToContents()
+
 
     def edit_label(self, event, label):
         """Edit a label when clicked."""
