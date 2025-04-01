@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt
 from PyQt6 import QtWidgets, QtCore
 from database.db_methods import get_project_by_id, get_project_details, get_document_details
 from functools import partial
+from views.drag_and_drop import DraggableFrame, DroppableContainer
 
 
 class ProjectWindow(QDialog):
@@ -21,8 +22,10 @@ class ProjectWindow(QDialog):
         scroll_area.setWidgetResizable(True)
 
         # The widget holding the scrollable content
-        scroll_content = QWidget()
-        self.main_layout = QVBoxLayout(scroll_content)
+        scroll_content = DroppableContainer()  # DroppableContainer is now scrollable content itself
+        self.main_layout = scroll_content.layout  # use the layout inside the container
+
+        scroll_area.setWidget(scroll_content)  # scrollable content is now DroppableContainer itself
 
         # Load project details
         self.selected_documents = selected_documents
@@ -103,21 +106,23 @@ class ProjectWindow(QDialog):
         columns_to_exclude = {"project_id", "relation_id", "document_id", "document_detail_id", "active"}
 
         for section_name, subsections in sections.items():
-            section_layout = QVBoxLayout()
+            section_container = QWidget()
+            section_layout = QVBoxLayout(section_container)
             section_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
             # Create section label
             section_label = QLabel(f"<h2>{section_name}</h2>")
             section_label.setStyleSheet("color:#4D4D4D")
             section_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            section_label.mousePressEvent = lambda event, label=section_label: self.edit_label(event, label)
-            self.main_layout.addWidget(section_label)
+            section_label.mouseDoubleClickEvent = lambda event, label=section_label: self.edit_label(event, label)
+            section_layout.addWidget(section_label)
+            section_layout.addWidget(section_label)
 
             for subsection_name, documents in subsections.items():
                 # Create subsection label
                 subsection_label = QLabel(f"    ➜ {subsection_name}")
                 subsection_label.setFixedHeight(50)
                 subsection_label.setStyleSheet("padding-left: 20px; color: #4D4D4D;")
-                subsection_label.mousePressEvent = lambda event, label=subsection_label: self.edit_label(event, label)
+                subsection_label.mouseDoubleClickEvent = lambda event, label=subsection_label: self.edit_label(event, label)
                 section_layout.addWidget(subsection_label)
 
                 # Create Table for Documents
@@ -162,6 +167,8 @@ class ProjectWindow(QDialog):
                 # Enable resizing of columns
                 header = table.horizontalHeader()
                 header.setSectionsMovable(True)
+                header.sectionMoved.connect(self.on_section_moved)
+
                 header.setStretchLastSection(True)
 
                 # Set the width of 'Title' column to a fixed size of 350px
@@ -200,9 +207,13 @@ class ProjectWindow(QDialog):
                 table.setFixedHeight(total_height)
                 self.current_table = table
 
+                frame = DraggableFrame()
+                frame.setLayout(section_layout)
+                self.main_layout.addWidget(frame)
                 # Add the table to the layout
                 section_layout.addWidget(table)
             self.main_layout.addLayout(section_layout)
+
         #Prevent dropping the table to the bottom if not enougth content
         self.main_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
@@ -278,6 +289,9 @@ class ProjectWindow(QDialog):
                 sections[section][subsection].append(document)
 
         return sections
+
+    def on_section_moved(self, logical_index, old_visual_index, new_visual_index):
+        print(f"Column moved from {old_visual_index} to {new_visual_index}")
 
     def export_html(self):
         QtWidgets.QMessageBox.information(self, "Export HTML", "Export to HTML feature coming soon!")
