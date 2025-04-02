@@ -106,6 +106,7 @@ class ProjectWindow(QDialog):
         columns_to_exclude = {"project_id", "relation_id", "document_id", "document_detail_id", "active"}
 
         for section_name, subsections in sections.items():
+            # --- SECTION SETUP ---
             section_container = QWidget()
             section_layout = QVBoxLayout(section_container)
             section_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -115,15 +116,21 @@ class ProjectWindow(QDialog):
             section_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             section_label.mouseDoubleClickEvent = lambda event, label=section_label: self.edit_label(event, label)
             section_layout.addWidget(section_label)
-            section_layout.addWidget(section_label)
+            # Subsection container inside section (drag enabled)
+            subsection_container = DroppableContainer()
+            section_layout.addWidget(subsection_container)
 
             for subsection_name, documents in subsections.items():
+                # --- SUBSECTION SETUP ---
+                subsection_widget = QWidget()
+                subsection_layout = QVBoxLayout(subsection_widget)
+                subsection_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
                 # Create subsection label
                 subsection_label = QLabel(f"    ➜ {subsection_name}")
                 subsection_label.setFixedHeight(50)
                 subsection_label.setStyleSheet("padding-left: 20px; color: #4D4D4D;")
                 subsection_label.mouseDoubleClickEvent = lambda event, label=subsection_label: self.edit_label(event, label)
-                section_layout.addWidget(subsection_label)
+                subsection_layout.addWidget(subsection_label)
 
                 # Create Table for Documents
                 table = QTableWidget()
@@ -137,7 +144,7 @@ class ProjectWindow(QDialog):
                 add_button.clicked.connect(partial(self.add_milestone, table))
                 add_button.setStyleSheet('margin-left: 10px; border-radius: 5px;')
                 add_button.setToolTip("Add milestone")
-                section_layout.addWidget(add_button)
+                subsection_layout.addWidget(add_button)
                 # Initialize table row count
                 table.setRowCount(len(documents))
 
@@ -207,12 +214,17 @@ class ProjectWindow(QDialog):
                 table.setFixedHeight(total_height)
                 self.current_table = table
 
-                frame = DraggableFrame()
-                frame.setLayout(section_layout)
-                self.main_layout.addWidget(frame)
-                # Add the table to the layout
-                section_layout.addWidget(table)
-            self.main_layout.addLayout(section_layout)
+                # Add everything to subsection frame
+                subsection_layout.addWidget(table)
+                subsection_frame = DraggableFrame()
+                subsection_frame.setLayout(subsection_layout)
+                subsection_container.layout.addWidget(subsection_frame)
+
+            # Add section to main layout
+            section_frame = DraggableFrame()
+            section_frame.setLayout(section_layout)
+            self.main_layout.addWidget(section_frame)
+
 
         #Prevent dropping the table to the bottom if not enougth content
         self.main_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
