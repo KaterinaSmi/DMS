@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt
 from PyQt6 import QtWidgets, QtCore
 from database.db_methods import get_project_by_id, get_project_details, get_document_details
 from functools import partial
-from views.drag_and_drop import DraggableFrame, DroppableContainer
+from views.drag_and_drop import DraggableFrame, DroppableContainer, DraggableDocumentTable
 
 
 class ProjectWindow(QDialog):
@@ -133,7 +133,7 @@ class ProjectWindow(QDialog):
                 subsection_layout.addWidget(subsection_label)
 
                 # Create Table for Documents
-                table = QTableWidget()
+                table = DraggableDocumentTable()
                 table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
                 table.setStyleSheet("background-color: white;")
                 table.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
