@@ -1,11 +1,13 @@
-from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy, \
-    QPushButton, QHBoxLayout, QToolButton, QMenu, QScrollArea, QWidget, QInputDialog, QSpacerItem
+from PyQt6.QtGui import QIcon, QAction
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTableWidgetItem, QSizePolicy, \
+    QToolButton, QMenu, QScrollArea, QWidget, QInputDialog, QSpacerItem, QHBoxLayout, QSplitter
 from PyQt6.QtCore import Qt
-from PyQt6 import QtWidgets, QtCore
-from database.db_methods import get_project_by_id, get_project_details, get_document_details
+from PyQt6 import QtWidgets
+from database.db_methods import  get_project_details, get_document_details
 from functools import partial
-from views.drag_and_drop import DraggableFrame, DroppableContainer, DraggableDocumentTable
+from views.drag_and_drop import DraggableFrame, DroppableContainer, DroppableDocumentContainer, DocumentRowWidget, HeaderRowWidget, \
+    HeaderRowWidget
+
 
 
 class ProjectWindow(QDialog):
@@ -16,6 +18,9 @@ class ProjectWindow(QDialog):
         self.setWindowTitle("Project Details")
         self.resize(1000, 800)
         self.setModal(True)
+        #track removed sections and subsections
+        self.removed_sections = set()
+        self.removed_subsections = set()
 
         # Create a scrollable main layout
         scroll_area = QScrollArea(self)
@@ -42,8 +47,8 @@ class ProjectWindow(QDialog):
 
         # Project Title
         self.project_label = QLabel(f"<h1>{project_name}</h1>")
-        self.project_label.setStyleSheet("color: #4D4D4D;")
-        self.project_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.project_label.setStyleSheet("color: #4D4D4D; margin-left: 370px;")
+        self.project_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.main_layout.addWidget(self.project_label)
 
         # Action Menu
@@ -98,167 +103,118 @@ class ProjectWindow(QDialog):
         self.main_layout.addWidget(self.action_menu)
 
     def display_sections(self, books_data):
-        """Displays sections, subsections, and related documents."""
-
+        """Displays sections, subsections, and related documents using row-based widgets."""
         sections = self.collect_sections(books_data)
-
-        # Columns to exclude from displaying
         columns_to_exclude = {"project_id", "relation_id", "document_id", "document_detail_id", "active"}
 
         for section_name, subsections in sections.items():
-            # --- SECTION SETUP ---
+            # SECTION SETUP
             section_container = QWidget()
             section_layout = QVBoxLayout(section_container)
             section_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-            # Create section label
+
+            section_frame = DraggableFrame()
+            section_frame.setLayout(section_layout)
+
             section_label = QLabel(f"<h2>{section_name}</h2>")
-            section_label.setStyleSheet("color:#4D4D4D")
-            section_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            section_label.setStyleSheet("color:#4D4D4D; margin-left: 400px;")
+            section_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            #connect the right click to delete
+            section_label.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            section_label.customContextMenuRequested.connect(
+                partial(
+                    self.show_section_context_menu,
+                    section_name=section_name,
+                    container_widget=section_frame,  # <-- ВАЖНО: не section_container
+                    label_widget=section_label
+                )
+            )
+
             section_label.mouseDoubleClickEvent = lambda event, label=section_label: self.edit_label(event, label)
             section_layout.addWidget(section_label)
-            # Subsection container inside section (drag enabled)
+
+
             subsection_container = DroppableContainer()
             section_layout.addWidget(subsection_container)
 
             for subsection_name, documents in subsections.items():
-                # --- SUBSECTION SETUP ---
+                # SUBSECTION SETUP
                 subsection_widget = QWidget()
                 subsection_layout = QVBoxLayout(subsection_widget)
                 subsection_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-                # Create subsection label
+
+
                 subsection_label = QLabel(f"    ➜ {subsection_name}")
                 subsection_label.setFixedHeight(50)
                 subsection_label.setStyleSheet("padding-left: 20px; color: #4D4D4D;")
-                subsection_label.mouseDoubleClickEvent = lambda event, label=subsection_label: self.edit_label(event, label)
+                subsection_label.mouseDoubleClickEvent = lambda event, label=subsection_label: self.edit_label(event,
+                                                                                                               label)
                 subsection_layout.addWidget(subsection_label)
+                buttons_layout = QVBoxLayout()
 
-                # Create Table for Documents
-                table = DraggableDocumentTable()
-                table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-                table.setStyleSheet("background-color: white;")
-                table.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
-                table.verticalHeader().setVisible(False)
+                # --- DOCUMENT CONTAINER ---
+                document_container = DroppableDocumentContainer()
+                document_container.layout.setSpacing(0)
+                document_container.layout.setContentsMargins(0, 0, 0, 0)
 
+
+                # --- ADD BUTTON ---
                 add_button = QToolButton()
                 add_button.setIcon(QIcon.fromTheme("list-add"))
-                add_button.clicked.connect(partial(self.add_milestone, table))
+                add_button.clicked.connect(partial(self.add_milestone, document_container))
                 add_button.setStyleSheet('margin-left: 10px; border-radius: 5px;')
                 add_button.setToolTip("Add milestone")
                 subsection_layout.addWidget(add_button)
-                # Initialize table row count
-                table.setRowCount(len(documents))
 
-                # To store all milestone columns for this subsection
+
+                subsection_layout.addWidget(document_container)
+
+                # --- FIND ALL MILESTONE COLUMNS ---
                 all_milestone_columns = set()
-
                 for document in documents:
-                    document_details = document.get("details", [])
-                    if document_details:
-                        for detail in document_details:
-                            all_milestone_columns.update(
-                                [col for col in detail.keys() if col not in columns_to_exclude]
-                            )
-
+                    for detail in document.get("details", []):
+                        all_milestone_columns.update(
+                            [col for col in detail.keys() if col not in columns_to_exclude]
+                        )
                 all_milestone_columns = list(all_milestone_columns)
-                milestone_count = len(all_milestone_columns)
 
-                # Define column count for each document's row (+1 for an expanding filler column)
-                column_count = 6 + milestone_count
-                table.setColumnCount(column_count)
+                # --- HEADER ROW ---
+                headers = ["Document", "Title", "State", "Owner", "Release Date"] + all_milestone_columns
+                header_widget = HeaderRowWidget(headers)
+                document_container.layout.addWidget(header_widget)
 
-                # Add headers including milestone columns
-                table.setHorizontalHeaderLabels(
-                    ["Document", "Title", "State", "Owner", "Release Date"] + all_milestone_columns + [""]
-                )
+                # --- DOCUMENT ROWS ---
+                for document in documents:
+                    doc_widget = DocumentRowWidget(document, all_milestone_columns)
+                    doc_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+                    document_container.layout.addWidget(doc_widget)
 
-                # Enable resizing of columns
-                header = table.horizontalHeader()
-                header.setSectionsMovable(True)
-                header.sectionMoved.connect(self.on_section_moved)
-
-                header.setStretchLastSection(True)
-
-                # Set the width of 'Title' column to a fixed size of 350px
-                table.setColumnWidth(1, 350)
-
-                # Make all other columns interactive for resizing
-                for col_index in range(column_count - 1):  # Excluding the last filler column
-                    if col_index != 1:  # Only 'Title' column has fixed width
-                        header.setSectionResizeMode(col_index, QHeaderView.ResizeMode.Interactive)
-
-                # Fill rows
-                for row_index, document in enumerate(documents):
-                    table.setItem(row_index, 0, QTableWidgetItem(document.get("doc", "") or ""))
-                    table.setItem(row_index, 1, QTableWidgetItem(document.get("title", "") or ""))
-                    table.setItem(row_index, 2, QTableWidgetItem(document.get("state", "") or ""))
-                    table.setItem(row_index, 3, QTableWidgetItem(document.get("owner", "") or ""))
-                    table.setItem(row_index, 4, QTableWidgetItem(str(document.get("release_date", "")) or ""))
-
-                    # Populate milestone columns
-                    document_details = document.get("details", [])
-                    if document_details:
-                        for detail in document_details:
-                            for col_index, milestone in enumerate(all_milestone_columns):
-                                value = detail.get(milestone, "")
-                                item = QTableWidgetItem(str(value) if value else "")
-                                item.setFlags(Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
-                                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                                table.setItem(row_index, 5 + col_index, item)
-
-                # Adjust table height to fit rows
-                table.resizeRowsToContents()
-                h_hor_scroll = 0
-                if table.columnCount() > 6:
-                    h_hor_scroll = table.horizontalScrollBar().height()
-                total_height = sum(table.rowHeight(row) for row in range(table.rowCount())) + table.horizontalHeader().height() + h_hor_scroll + 4
-                table.setFixedHeight(total_height)
-                self.current_table = table
-
-                # Add everything to subsection frame
-                subsection_layout.addWidget(table)
+                # --- WRAP UP SUBSECTION ---
                 subsection_frame = DraggableFrame()
                 subsection_frame.setLayout(subsection_layout)
                 subsection_container.layout.addWidget(subsection_frame)
 
-            # Add section to main layout
-            section_frame = DraggableFrame()
-            section_frame.setLayout(section_layout)
+
+
             self.main_layout.addWidget(section_frame)
 
-
-        #Prevent dropping the table to the bottom if not enougth content
-        self.main_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
-
-    def add_milestone(self, table):
-        column_name, ok = QInputDialog.getText(self, "Add Milestone", "Enter milestone name:")
-        if not ok or not column_name.strip():
+    def add_milestone(self, document_container: DroppableDocumentContainer):
+        new_key, ok = QInputDialog.getText(self, "Add Milestone", "Enter milestone name:")
+        if not ok or not new_key.strip():
             return
 
-        column_name = column_name.strip()
+        new_key = new_key.strip()
 
-        # 1. Удалим пустую колонку в конце (если она есть)
-        last_col = table.columnCount() - 1
-        if table.horizontalHeaderItem(last_col) and table.horizontalHeaderItem(last_col).text() == "":
-            table.removeColumn(last_col)
+        # 1. Добавим в заголовок
+        if isinstance(document_container.layout.itemAt(0).widget(), HeaderRowWidget):
+            header_widget: HeaderRowWidget = document_container.layout.itemAt(0).widget()
+            header_widget.add_column(new_key)
 
-        # 2. Добавим новую колонку
-        new_col_index = table.columnCount()
-        table.insertColumn(new_col_index)
-        table.setHorizontalHeaderItem(new_col_index, QTableWidgetItem(column_name))
-
-        for row in range(table.rowCount()):
-            item = QTableWidgetItem("")
-            item.setFlags(Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            table.setItem(row, new_col_index, item)
-
-        # 3. Добавим снова служебную пустую колонку
-        table.insertColumn(new_col_index + 1)
-        table.setHorizontalHeaderItem(new_col_index + 1, QTableWidgetItem(""))
-
-        # 4. Обновим размеры
-        table.resizeColumnsToContents()
-
+        # 2. Добавим в каждую строку (DocumentRowWidget)
+        for i in range(1, document_container.layout.count()):
+            widget = document_container.layout.itemAt(i).widget()
+            if isinstance(widget, DocumentRowWidget):
+                widget.add_milestone_column(new_key)
 
     def edit_label(self, event, label):
         """Edit a label when clicked."""
@@ -302,8 +258,36 @@ class ProjectWindow(QDialog):
 
         return sections
 
-    def on_section_moved(self, logical_index, old_visual_index, new_visual_index):
+    @staticmethod
+    def on_section_moved(logical_index, old_visual_index, new_visual_index):
         print(f"Column moved from {old_visual_index} to {new_visual_index}")
+
+    def show_section_context_menu(self, pos, section_name, container_widget, label_widget):
+        menu = QMenu(self)
+
+        delete_action = QAction("Delete", self)
+        delete_action.triggered.connect(lambda: self.remove_section(section_name, container_widget))
+        menu.addAction(delete_action)
+
+        global_pos = label_widget.mapToGlobal(pos)
+        menu.exec(global_pos)
+
+    def remove_section(self, section_name, widget):
+        self.removed_sections.add(section_name)
+
+        for i in range(self.main_layout.count()):
+            item = self.main_layout.itemAt(i)
+            if item and item.widget() == widget:
+                self.main_layout.removeWidget(widget)
+                widget.setParent(None)
+                widget.deleteLater()
+                print(f"Section '{section_name}' removed.")
+                break
+
+    def remove_subsection(self, section_name, subsection_name, widget):
+        self.removed_subsections.add((section_name, subsection_name))
+        widget.setParent(None)
+        widget.deleteLater()
 
     def export_html(self):
         QtWidgets.QMessageBox.information(self, "Export HTML", "Export to HTML feature coming soon!")

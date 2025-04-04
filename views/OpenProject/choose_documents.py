@@ -1,6 +1,8 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem, QCheckBox, QPushButton, QHeaderView, \
     QMessageBox, QHBoxLayout, QSizePolicy, QLineEdit, QComboBox
 from PyQt6.QtCore import Qt
+
+from views.OpenProject.choose_sections import ChooseSections
 from views.OpenProject.project_window import ProjectWindow
 
 class ChooseDocuments(QDialog):
@@ -161,27 +163,31 @@ class ChooseDocuments(QDialog):
         self.setLayout(main_layout)
 
     def apply_filters(self):
-        search_text = self.search_input.text().lower()
-        selected_state = self.release_state_combo.currentText()
+        search_text = self.search_input.text().strip().lower()
+        selected_state = self.release_state_combo.currentText().strip()
 
         row = 0
-        for book_name, documents in self.book_data.items():
-            for doc_index, doc in enumerate(documents):
-                document_name = doc.name
-                doc_state = doc.state or ""
+        for book_id, book_info in self.book_data.items():
+            documents = book_info["documents"]
+            for doc in documents:
+                # Безопасное извлечение
+                document_name = getattr(doc, "title", "") or ""
+                if callable(document_name):
+                    document_name = document_name()
+                document_name = str(document_name).strip().lower()
 
-                # Check if the document name matches the search text
-                text_match = search_text in document_name.lower()
+                doc_state = getattr(doc, "state", "") or ""
+                if callable(doc_state):
+                    doc_state = doc_state()
+                doc_state = str(doc_state).strip()
 
-                # Check if the document state matches the selected state filter
-                state_match = (selected_state == "All States" or selected_state == doc_state)
+                # Проверка соответствия фильтрам
+                text_match = document_name.startswith(search_text)
 
-                # If both conditions are true, show the row; otherwise, hide it
-                if text_match and state_match:
-                    self.project_table.setRowHidden(row, False)
-                else:
-                    self.project_table.setRowHidden(row, True)
+                state_match = selected_state == "All States" or doc_state == selected_state
 
+                # Устанавливаем видимость строки
+                self.project_table.setRowHidden(row, not (text_match and state_match))
                 row += 1
 
     def select_all_documents(self):
@@ -215,6 +221,7 @@ class ChooseDocuments(QDialog):
         if not any(book["documents"] for book in selected_documents.values()):
             QMessageBox.warning(self, 'No Document Selected', 'Please select at least one document to continue.')
             return
+
 
         # Open the ProjectWindow with the selected documents
         project_window = ProjectWindow(self.project_id, selected_documents, self)
