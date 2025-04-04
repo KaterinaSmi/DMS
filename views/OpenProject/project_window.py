@@ -139,10 +139,9 @@ class ProjectWindow(QDialog):
 
             for subsection_name, documents in subsections.items():
                 # SUBSECTION SETUP
-                subsection_widget = QWidget()
-                subsection_layout = QVBoxLayout(subsection_widget)
+                subsection_frame = DraggableFrame()
+                subsection_layout = QVBoxLayout(subsection_frame)
                 subsection_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
 
                 subsection_label = QLabel(f"    ➜ {subsection_name}")
                 subsection_label.setFixedHeight(50)
@@ -150,7 +149,16 @@ class ProjectWindow(QDialog):
                 subsection_label.mouseDoubleClickEvent = lambda event, label=subsection_label: self.edit_label(event,
                                                                                                                label)
                 subsection_layout.addWidget(subsection_label)
-                buttons_layout = QVBoxLayout()
+                subsection_label.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+                subsection_label.customContextMenuRequested.connect(
+                    partial(
+                        self.show_subsection_context_menu,
+                        section_name=section_name,
+                        subsection_name=subsection_name,
+                        container_widget=subsection_frame,
+                        label_widget=subsection_label
+                    )
+                )
 
                 # --- DOCUMENT CONTAINER ---
                 document_container = DroppableDocumentContainer()
@@ -189,9 +197,7 @@ class ProjectWindow(QDialog):
                     doc_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
                     document_container.layout.addWidget(doc_widget)
 
-                # --- WRAP UP SUBSECTION ---
-                subsection_frame = DraggableFrame()
-                subsection_frame.setLayout(subsection_layout)
+
                 subsection_container.layout.addWidget(subsection_frame)
 
 
@@ -267,6 +273,16 @@ class ProjectWindow(QDialog):
 
         delete_action = QAction("Delete", self)
         delete_action.triggered.connect(lambda: self.remove_section(section_name, container_widget))
+        menu.addAction(delete_action)
+
+        global_pos = label_widget.mapToGlobal(pos)
+        menu.exec(global_pos)
+
+    def show_subsection_context_menu(self, pos, section_name, subsection_name, container_widget, label_widget):
+        menu = QMenu(self)
+
+        delete_action = QAction("Delete", self)
+        delete_action.triggered.connect(lambda: self.remove_subsection(section_name, subsection_name, container_widget))
         menu.addAction(delete_action)
 
         global_pos = label_widget.mapToGlobal(pos)
