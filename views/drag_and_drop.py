@@ -150,7 +150,8 @@ class DocumentRowWidget(DraggableDocumentFrame):
         super().__init__(parent)
         self.document = document
         self.milestone_keys = milestone_keys
-        self.input_fields = {}  # хранение QLineEdit по ключу
+        self.input_fields = {}
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         details = document.get("details", [])
         if details:
@@ -233,6 +234,7 @@ class DocumentRowWidget(DraggableDocumentFrame):
 class HeaderRowWidget(QWidget):
     def __init__(self, headers: list[str], parent=None):
         super().__init__(parent)
+        self.columns = headers
 
         COLUMN_WIDTH = 150
         ROW_HEIGHT = 40
@@ -279,6 +281,10 @@ class HeaderRowWidget(QWidget):
             else:
                 total_width += 150
         self.setFixedWidth(total_width)
+
+    def get_columns(self) -> list[str]:
+        """Returns the list of column names (headers)."""
+        return self.columns[5:]
 
     def add_column(self, header_name: str):
         label = QLabel(header_name)

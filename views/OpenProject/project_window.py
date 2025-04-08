@@ -1,13 +1,17 @@
+import csv
+import os
+
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTableWidgetItem, QSizePolicy, \
-    QToolButton, QMenu, QScrollArea, QWidget, QInputDialog, QSpacerItem, QHBoxLayout, QSplitter
+    QMenu, QScrollArea, QWidget, QInputDialog, QSpacerItem, QHBoxLayout, QSplitter, QFileDialog, QMessageBox
 from PyQt6.QtCore import Qt
 from PyQt6 import QtWidgets
 from database.db_methods import  get_project_details, get_document_details
 from functools import partial
-from views.drag_and_drop import DraggableFrame, DroppableContainer, DroppableDocumentContainer, DocumentRowWidget, HeaderRowWidget, \
-    HeaderRowWidget
-
+from PyQt6.QtWidgets import QToolButton
+from views.drag_and_drop import DraggableFrame, DroppableContainer, DroppableDocumentContainer, DocumentRowWidget, \
+    HeaderRowWidget, \
+    HeaderRowWidget, DraggableSubsectionFrame
 
 
 class ProjectWindow(QDialog):
@@ -21,6 +25,8 @@ class ProjectWindow(QDialog):
         #track removed sections and subsections
         self.removed_sections = set()
         self.removed_subsections = set()
+
+        self.section_containers = {}  # Add this in __init__ if not already present
 
         # Create a scrollable main layout
         scroll_area = QScrollArea(self)
@@ -78,6 +84,7 @@ class ProjectWindow(QDialog):
                    padding: 5px 10px;
                    font-size: 14px;
                    text-align:left;
+                   margin: 10px;
                }
 
                QToolButton:hover {
@@ -97,6 +104,7 @@ class ProjectWindow(QDialog):
         menu.addAction("Export to HTML").triggered.connect(self.export_html)
         menu.addAction("Open in Excel").triggered.connect(self.open_in_excel)
         menu.addAction("Open in MyWorkshop").triggered.connect(self.open_in_myworkshop)
+        menu.addAction("Add New Section").triggered.connect(self.add_section)
         menu.addAction("Exit").triggered.connect(self.reject)
 
         self.action_menu.setMenu(menu)
@@ -137,6 +145,8 @@ class ProjectWindow(QDialog):
             subsection_container = DroppableContainer()
             section_layout.addWidget(subsection_container)
 
+            self.section_containers[section_name] = subsection_container
+
             for subsection_name, documents in subsections.items():
                 # SUBSECTION SETUP
                 subsection_frame = DraggableFrame()
@@ -169,9 +179,32 @@ class ProjectWindow(QDialog):
                 # --- ADD BUTTON ---
                 add_button = QToolButton()
                 add_button.setIcon(QIcon.fromTheme("list-add"))
-                add_button.clicked.connect(partial(self.add_milestone, document_container))
-                add_button.setStyleSheet('margin-left: 10px; border-radius: 5px;')
-                add_button.setToolTip("Add milestone")
+                add_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+
+                menu = QMenu()
+
+                milestone_action = QAction("Add Milestone", self)
+                milestone_action.triggered.connect(partial(self.add_milestone, document_container))
+                menu.addAction(milestone_action)
+
+                document_action = QAction("Add Document(s)", self)
+                document_action.triggered.connect(partial(self.add_documents, document_container))
+                menu.addAction(document_action)
+                #add_button.clicked.connect(partial(self.add_milestone, document_container))
+                #add_button.setToolTip("Add milestone")
+                add_button.setStyleSheet("""
+                    QToolButton {
+                        margin-left: 10px;
+                        border-radius: 5px;
+                    }
+                    QToolButton::menu-indicator {
+                        image: none;  /* Убираем стрелку вниз */
+                    }
+                """)
+
+                add_button.setMenu(menu)
+                add_button.setToolTip("Add milestone or documents")
+
                 subsection_layout.addWidget(add_button)
 
 
@@ -197,12 +230,120 @@ class ProjectWindow(QDialog):
                     doc_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
                     document_container.layout.addWidget(doc_widget)
 
-
                 subsection_container.layout.addWidget(subsection_frame)
 
-
-
             self.main_layout.addWidget(section_frame)
+
+    def add_section(self):
+        section_name, ok = QInputDialog.getText(self, "New Section Name", "Enter section name:")
+        if not ok or not section_name.strip():
+            return
+        section_name = section_name.strip()
+
+        #Create section container and layout
+        section_container = QWidget()
+        section_layout = QVBoxLayout(section_container)
+        section_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        section_frame = DraggableFrame()
+        section_frame.setLayout(section_layout)
+
+        section_label = QLabel(f"<h2>{section_name}</h2>")
+        section_label.setStyleSheet("color:#4D4D4D; margin-left: 400px;")
+        section_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        section_label.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        section_label.customContextMenuRequested.connect(
+            partial(
+                self.show_section_context_menu,
+                section_name=section_name,
+                container_widget=section_frame,
+                label_widget=section_label
+            )
+        )
+        section_label.mouseDoubleClickEvent = lambda event, label=section_label: self.edit_label(event, label)
+
+        section_layout.addWidget(section_label)
+
+        # Empty container for subsections
+        subsection_container = DroppableContainer()
+        section_layout.addWidget(subsection_container)
+        self.section_containers[section_name] = subsection_container
+
+        self.main_layout.addWidget(section_frame)
+
+    def add_subsection(self, section_name):
+        subsection_name, ok = QInputDialog.getText(self, "New Subsection Name",
+                                                   f"Enter name for new subsection in '{section_name}':")
+        if not ok or not subsection_name.strip():
+            return
+        subsection_name = subsection_name.strip()
+
+        # --- SUBSECTION FRAME ---
+        subsection_frame = DraggableFrame()
+        subsection_layout = QVBoxLayout(subsection_frame)
+        subsection_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # --- SUBSECTION LABEL ---
+        subsection_label = QLabel(f"    ➜ {subsection_name}")
+        subsection_label.setFixedHeight(50)
+        subsection_label.setStyleSheet("padding-left: 20px; color: #4D4D4D;")
+        subsection_label.mouseDoubleClickEvent = lambda event, label=subsection_label: self.edit_label(event, label)
+        subsection_label.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        subsection_label.customContextMenuRequested.connect(
+            partial(
+                self.show_subsection_context_menu,
+                section_name=section_name,
+                subsection_name=subsection_name,
+                container_widget=subsection_frame,
+                label_widget=subsection_label
+            )
+        )
+        subsection_layout.addWidget(subsection_label)
+
+        # --- DOCUMENT CONTAINER ---
+        document_container = DroppableDocumentContainer()
+        document_container.layout.setSpacing(0)
+        document_container.layout.setContentsMargins(0, 0, 0, 0)
+
+        # --- ADD BUTTON ---
+        add_button = QToolButton()
+        add_button.setIcon(QIcon.fromTheme("list-add"))
+        add_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+
+        menu = QMenu()
+        milestone_action = QAction("Add Milestone", self)
+        milestone_action.triggered.connect(partial(self.add_milestone, document_container))
+        menu.addAction(milestone_action)
+
+        document_action = QAction("Add Document(s)", self)
+        document_action.triggered.connect(partial(self.add_documents, document_container))
+        menu.addAction(document_action)
+
+        add_button.setMenu(menu)
+        add_button.setToolTip("Add milestone or documents")
+        add_button.setStyleSheet("""
+            QToolButton {
+                margin-left: 10px;
+                border-radius: 5px;
+            }
+            QToolButton::menu-indicator {
+                image: none;
+            }
+        """)
+        subsection_layout.addWidget(add_button)
+        subsection_layout.addWidget(document_container)
+
+        # --- HEADER ROW ---
+        headers = ["Document", "Title", "State", "Owner", "Release Date"]
+        header_widget = HeaderRowWidget(headers)
+        document_container.layout.addWidget(header_widget)
+
+        # Добавляем весь subsection в соответствующую секцию
+        if section_name in self.section_containers:
+            self.section_containers[section_name].layout.addWidget(subsection_frame)
+        else:
+            QMessageBox.warning(self, "Error", f"Section container for '{section_name}' not found.")
 
     def add_milestone(self, document_container: DroppableDocumentContainer):
         new_key, ok = QInputDialog.getText(self, "Add Milestone", "Enter milestone name:")
@@ -221,6 +362,40 @@ class ProjectWindow(QDialog):
             widget = document_container.layout.itemAt(i).widget()
             if isinstance(widget, DocumentRowWidget):
                 widget.add_milestone_column(new_key)
+
+    def add_documents(self, document_container: DroppableDocumentContainer):
+        files, _ = QFileDialog.getOpenFileNames(self, "Select CSV Documents", "", "CSV Files (*.csv)")
+        if not files:
+            return
+
+        milestone_columns = []
+        if document_container.layout.count() > 0:
+            header_widget = document_container.layout.itemAt(0).widget()
+            if isinstance(header_widget, HeaderRowWidget):
+                milestone_columns = header_widget.get_columns()
+
+        for file_path in files:
+            try:
+                with open(file_path, "r", encoding="utf-8") as file:
+                    reader = csv.DictReader(file)
+                    for row in reader:
+                        if not isinstance(row, dict) or all(not v.strip() for v in row.values()):
+                            continue  # Skip invalid or empty rows
+
+                        document = {
+                            "doc": row.get("name", os.path.basename(file_path)),
+                            "title": row.get("title", ""),
+                            "state": row.get("state", ""),
+                            "owner": row.get("owner", ""),
+                            "release_date": row.get("releasedate", ""),
+                            "details": []
+                        }
+
+                        doc_widget = DocumentRowWidget(document, milestone_columns)
+                        document_container.layout.addWidget(doc_widget)
+
+            except Exception as e:
+                QMessageBox.warning(self, "Error", f"Could not read file:\n{file_path}\n\n{e}")
 
     def edit_label(self, event, label):
         """Edit a label when clicked."""
@@ -271,8 +446,16 @@ class ProjectWindow(QDialog):
     def show_section_context_menu(self, pos, section_name, container_widget, label_widget):
         menu = QMenu(self)
 
+        add_subsection_action = QAction("Add Subsection", self)
+        add_subsection_action.triggered.connect(
+            lambda: self.add_subsection(section_name)
+        )
+        menu.addAction(add_subsection_action)
+
         delete_action = QAction("Delete", self)
-        delete_action.triggered.connect(lambda: self.remove_section(section_name, container_widget))
+        delete_action.triggered.connect(
+            lambda: self.remove_section(section_name, container_widget)
+        )
         menu.addAction(delete_action)
 
         global_pos = label_widget.mapToGlobal(pos)
