@@ -467,9 +467,9 @@ class ProjectWindow(QDialog):
         menu.addAction(add_subsection_action)
 
         delete_action = QAction("Delete", self)
-        delete_action.triggered.connect(
+        delete_action.triggered.connect(lambda: self.confirm_removal(
             lambda: self.remove_section(section_name, container_widget)
-        )
+        ))
         menu.addAction(delete_action)
 
         global_pos = label_widget.mapToGlobal(pos)
@@ -479,7 +479,7 @@ class ProjectWindow(QDialog):
         menu = QMenu(self)
 
         delete_action = QAction("Delete", self)
-        delete_action.triggered.connect(lambda: self.remove_subsection(section_name, subsection_name, container_widget))
+        delete_action.triggered.connect(lambda: self.confirm_removal(lambda: self.remove_subsection(section_name, subsection_name, container_widget)))
         menu.addAction(delete_action)
 
         global_pos = label_widget.mapToGlobal(pos)
@@ -488,7 +488,9 @@ class ProjectWindow(QDialog):
     def show_document_context_menu(self, pos, doc_widget):
         menu = QMenu(self)
         delete_action = QAction("Delete Document", self)
-        delete_action.triggered.connect(lambda: self.confirm_removal(doc_widget))
+        delete_action.triggered.connect(
+            lambda: self.confirm_removal(lambda: self.remove_document(doc_widget))
+        )
         menu.addAction(delete_action)
         menu.exec(QCursor.pos())
 
@@ -522,7 +524,7 @@ class ProjectWindow(QDialog):
         doc_widget.setParent(None)
         doc_widget.deleteLater()
 
-    def confirm_removal(self, doc_widget):
+    def confirm_removal(self, on_confirm:callable):
         reply = QMessageBox.question(
             self,
             "Confirm Deletion",
@@ -530,7 +532,8 @@ class ProjectWindow(QDialog):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
-            self.remove_document(doc_widget)
+            on_confirm()
+
     def export_html(self):
         QtWidgets.QMessageBox.information(self, "Export HTML", "Export to HTML feature coming soon!")
 
