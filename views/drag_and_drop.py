@@ -1,3 +1,5 @@
+from datetime import datetime, date
+
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QWidget, QApplication, QTableWidget, QAbstractItemView, \
     QTableWidgetItem, QHBoxLayout, QLabel, QSizePolicy, QLineEdit
 from PyQt6.QtCore import Qt, QMimeData, QDataStream, QIODevice, QByteArray, QPoint
@@ -177,20 +179,28 @@ class DocumentRowWidget(DraggableDocumentFrame):
             }
         """)
 
-        def make_label(text, is_wide=False):
+        def make_label(text, key=""):
             label = QLabel(text)
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setFixedHeight(40)
-            label.setFixedWidth(200 if is_wide else 150)
+            #set width of the cell
+            if key.lower() == "title":
+                label.setFixedWidth(350)
+            elif key.lower() in ("document", "doc", "name"):
+                label.setFixedWidth(200)
+            else:
+                label.setFixedWidth(150)
             label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             return label
 
+        # datetime format
+        formatted_date = self.format_release_date(document.get("release_date", ""))
         # Static fields
-        layout.addWidget(make_label(document.get("doc", ""), is_wide=True))
-        layout.addWidget(make_label(document.get("title", ""), is_wide=True))
+        layout.addWidget(make_label(document.get("doc", ""), key="doc"))
+        layout.addWidget(make_label(document.get("title", ""), key="title"))
         layout.addWidget(make_label(document.get("state", "")))
         layout.addWidget(make_label(document.get("owner", "")))
-        layout.addWidget(make_label(str(document.get("release_date", ""))))
+        layout.addWidget(make_label(formatted_date))
 
         # Milestone editable fields
         for milestone in milestone_keys:
@@ -202,6 +212,17 @@ class DocumentRowWidget(DraggableDocumentFrame):
             field = self.make_editable_field(str(value or ""))
             self.input_fields[milestone] = field
             layout.addWidget(field)
+
+    @staticmethod
+    def format_release_date(date_input):
+        if isinstance(date_input, date):
+            return date_input.strftime("%d.%m.%Y")
+
+        if isinstance(date_input, str):
+            parts = date_input.strip().split()
+            if len(parts) >= 4:
+                return f" {parts[0]} {parts[1]} {parts[2]}"
+        return str(date_input)
 
     @staticmethod
     def make_editable_field(text):
@@ -259,8 +280,10 @@ class HeaderRowWidget(QWidget):
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setFixedHeight(ROW_HEIGHT)
 
-            if header.lower() in ("title", "document", "name"):
+            if header.lower() in ( "document", "name"):
                 label.setFixedWidth(200)
+            elif header.lower() == "title":
+                label.setFixedWidth(350)
             else:
                 label.setFixedWidth(150)
 
@@ -273,18 +296,19 @@ class HeaderRowWidget(QWidget):
         main_layout.addWidget(wrapper)
 
         # Match the full row width to content width
-        wide_columns = {"document", "title", "name"}
+        wide_columns = {"document", "name"}
         total_width = 0
         for header in headers:
             if header.lower() in wide_columns:
                 total_width += 200
+            elif header.lower() == "title":
+                total_width += 350
             else:
                 total_width += 150
         self.setFixedWidth(total_width)
 
     def get_columns(self) -> list[str]:
-        """Returns the list of column names (headers)."""
-        return self.columns[5:]
+        return self.columns[5:] if len(self.columns) > 5 else []
 
     def add_column(self, header_name: str):
         label = QLabel(header_name)

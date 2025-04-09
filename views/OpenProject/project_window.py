@@ -1,6 +1,6 @@
 import csv
 import os
-
+from PyQt6.QtGui import QCursor
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTableWidgetItem, QSizePolicy, \
     QMenu, QScrollArea, QWidget, QInputDialog, QSpacerItem, QHBoxLayout, QSplitter, QFileDialog, QMessageBox
@@ -25,6 +25,10 @@ class ProjectWindow(QDialog):
         #track removed sections and subsections
         self.removed_sections = set()
         self.removed_subsections = set()
+
+        self.columns_to_exclude = {"project_id", "relation_id", "document_id", "document_detail_id", "active"}
+
+        self.base_headers = ["Document", "Title", "State", "Owner", "Release Date"]
 
         self.section_containers = {}  # Add this in __init__ if not already present
 
@@ -113,8 +117,6 @@ class ProjectWindow(QDialog):
     def display_sections(self, books_data):
         """Displays sections, subsections, and related documents using row-based widgets."""
         sections = self.collect_sections(books_data)
-        columns_to_exclude = {"project_id", "relation_id", "document_id", "document_detail_id", "active"}
-
         for section_name, subsections in sections.items():
             # SECTION SETUP
             section_container = QWidget()
@@ -215,7 +217,7 @@ class ProjectWindow(QDialog):
                 for document in documents:
                     for detail in document.get("details", []):
                         all_milestone_columns.update(
-                            [col for col in detail.keys() if col not in columns_to_exclude]
+                            [col for col in detail.keys() if col not in self.columns_to_exclude]
                         )
                 all_milestone_columns = list(all_milestone_columns)
 
@@ -228,7 +230,11 @@ class ProjectWindow(QDialog):
                 for document in documents:
                     doc_widget = DocumentRowWidget(document, all_milestone_columns)
                     doc_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-                    document_container.layout.addWidget(doc_widget)
+                    doc_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+                    doc_widget.customContextMenuRequested.connect(
+                        lambda pos, w=doc_widget: self.show_document_context_menu(pos, w)
+                    )
+                    document_container.layout .addWidget(doc_widget)
 
                 subsection_container.layout.addWidget(subsection_frame)
 
@@ -363,8 +369,8 @@ class ProjectWindow(QDialog):
             if isinstance(widget, DocumentRowWidget):
                 widget.add_milestone_column(new_key)
 
-    def add_documents(self, document_container: DroppableDocumentContainer):
-        files, _ = QFileDialog.getOpenFileNames(self, "Select CSV Documents", "", "CSV Files (*.csv)")
+    def add_documents(self, document_container):
+        files, _ = QFileDialog.getOpenFileNames(self, "Select CSV Documents", "", "CSV files (*.csv)")
         if not files:
             return
 
@@ -375,28 +381,36 @@ class ProjectWindow(QDialog):
                 milestone_columns = header_widget.get_columns()
 
         for file_path in files:
+            print(file_path)  # Ensure file path is correctly printed
             try:
-                with open(file_path, "r", encoding="utf-8") as file:
-                    reader = csv.DictReader(file)
-                    for row in reader:
-                        if not isinstance(row, dict) or all(not v.strip() for v in row.values()):
-                            continue  # Skip invalid or empty rows
+                with open(file_path, "r") as file:
+                    reader = csv.reader(file)
 
+                    headers = next(reader, None)  # Skip the header row
+                    print(f"Headers: {headers}")  # Debugging statement
+
+                    for row in reader:
+                        print(f"Row: {row}")  # Debugging statement
+                        if len(row) < 6 or all(not str(v).strip() for v in row):
+                            print("Skipping row too short or empty")
+                            continue
+
+                        print(f"row[0] {row[0]}")
+                        print(f"row[1] {row[1]}")
                         document = {
-                            "doc": row.get("name", os.path.basename(file_path)),
-                            "title": row.get("title", ""),
-                            "state": row.get("state", ""),
-                            "owner": row.get("owner", ""),
-                            "release_date": row.get("releasedate", ""),
+                            "doc": row[0],
+                            "title": row[1] if len(row) > 2 else "",
+                            "owner": row[2] if len(row) > 3 else "",  # Assuming 'Owner' is the fourth column
+                            "state": row[3] if len(row) > 4 else "",  # Assuming 'State' is the fifth column
+                            "release_date": row[4] if len(row) > 5 else "",
                             "details": []
                         }
-
+                        print(f"Document: {document}")  # Debugging statement
                         doc_widget = DocumentRowWidget(document, milestone_columns)
                         document_container.layout.addWidget(doc_widget)
 
             except Exception as e:
-                QMessageBox.warning(self, "Error", f"Could not read file:\n{file_path}\n\n{e}")
-
+                QMessageBox.warning(self, "Error", f"Could not read file: {file_path}, {e}")
     def edit_label(self, event, label):
         """Edit a label when clicked."""
         current_text = label.text().strip()
@@ -471,6 +485,13 @@ class ProjectWindow(QDialog):
         global_pos = label_widget.mapToGlobal(pos)
         menu.exec(global_pos)
 
+    def show_document_context_menu(self, pos, doc_widget):
+        menu = QMenu(self)
+        delete_action = QAction("Delete Document", self)
+        delete_action.triggered.connect(lambda: self.confirm_removal(doc_widget))
+        menu.addAction(delete_action)
+        menu.exec(QCursor.pos())
+
     def remove_section(self, section_name, widget):
         self.removed_sections.add(section_name)
 
@@ -488,6 +509,28 @@ class ProjectWindow(QDialog):
         widget.setParent(None)
         widget.deleteLater()
 
+    def remove_document(self, doc_widget):
+        parent = self.parentWidget()
+        while parent and not isinstance(parent.layout(), QVBoxLayout):
+            parent = parent.parentWidget()
+
+        if parent:
+            layout = parent.layout()
+            if layout:
+                layout.removeWidget(self)
+
+        doc_widget.setParent(None)
+        doc_widget.deleteLater()
+
+    def confirm_removal(self, doc_widget):
+        reply = QMessageBox.question(
+            self,
+            "Confirm Deletion",
+            "Are you sure you want to delete this document?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.remove_document(doc_widget)
     def export_html(self):
         QtWidgets.QMessageBox.information(self, "Export HTML", "Export to HTML feature coming soon!")
 
